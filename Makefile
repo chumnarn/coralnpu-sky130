@@ -51,7 +51,7 @@ BUILD        := build
 
 export PDK_ROOT PDK STD_CELL_LIBRARY PAD_CELL_LIBRARY LIBRELANE TAG CORALNPU_DIR BAZEL
 
-.PHONY: help tools pdk fetch rtl chip-top sw sim sim-sram sim-real lint \
+.PHONY: help tools pdk fetch check-coralnpu rtl chip-top sw sim sim-sram sim-real lint \
         soc chip report-soc report-chip view-soc view-chip clean distclean
 
 help:
@@ -78,7 +78,7 @@ fetch:
 	bash scripts/fetch_coralnpu.sh
 
 # ----------------------------------------------------------------- RTL
-rtl:
+rtl: check-coralnpu
 	bash scripts/emit_rtl.sh $(VARIANT)
 
 chip-top:
@@ -91,7 +91,12 @@ lint: rtl/generated/CoralNPUCore.sv $(SRAM_MODEL)
 	  rtl/generated/CoralNPUCore.sv $(GLUE_RTL) $(SRAM_MODEL) 2>&1 | tee $(BUILD)/lint.log | tail -20
 
 # ----------------------------------------------------------------- software
-sw:
+check-coralnpu:
+	@test -f $(CORALNPU_DIR)/MODULE.bazel || { \
+	  echo "ERROR: CoralNPU is not checked out in $(CORALNPU_DIR) (no MODULE.bazel)."; \
+	  echo "       Run 'make fetch' first."; exit 1; }
+
+sw: check-coralnpu
 	mkdir -p $(CORALNPU_DIR)/examples/sky130
 	cp sw/gpio_demo.c sw/BUILD.bazel $(CORALNPU_DIR)/examples/sky130/
 	cd $(CORALNPU_DIR) && $(BAZEL) build //examples/sky130:$(SW_TARGET).elf

@@ -38,13 +38,13 @@ CoralNPU เป็น NPU แบบ open source ของ Google Research ที
  │ ┌─▼────▼──────────▼────────────────────▼───────▼────────────┴─────────┐ │
  │ │ coralnpu_soc                                                        │ │
  │ │  ┌──────────────┐ AXI4 128b ┌───────────────────────────────┐       │ │
- │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)    │       │ │
- │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR    │       │ │
- │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB  │       │ │
- │ │                             │  DTCM 32K = 16 x OpenRAM 2KB  │       │ │
+ │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)     │       │ │
+ │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR     │       │ │
+ │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB   │       │ │
+ │ │                             │  DTCM 32K = 16 x OpenRAM 2KB   │       │ │
  │ │  ┌──────────────┐ AXI4 128b └──────────────┬────────────────┘       │ │
  │ │  │axi_gpio_slave│◄─────────────────────────┘ (master)               │ │
- │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000         │ │
+ │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000          │ │
  │ └─────────────────────────────────────────────────────────────────────┘ │
  └─────────────────────────────────────────────────────────────────────────┘
 ```
