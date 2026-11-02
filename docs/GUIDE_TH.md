@@ -38,13 +38,13 @@ CoralNPU เป็น NPU แบบ open source ของ Google Research ที
  │ ┌─▼────▼──────────▼────────────────────▼───────▼────────────┴─────────┐ │
  │ │ coralnpu_soc                                                        │ │
  │ │  ┌──────────────┐ AXI4 128b ┌───────────────────────────────┐       │ │
- │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)    │       │ │
- │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR    │       │ │
- │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB  │       │ │
- │ │                             │  DTCM 32K = 16 x OpenRAM 2KB  │       │ │
+ │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)     │       │ │
+ │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR     │       │ │
+ │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB   │       │ │
+ │ │                             │  DTCM 32K = 16 x OpenRAM 2KB   │       │ │
  │ │  ┌──────────────┐ AXI4 128b └──────────────┬────────────────┘       │ │
  │ │  │axi_gpio_slave│◄─────────────────────────┘ (master)               │ │
- │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000         │ │
+ │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000          │ │
  │ └─────────────────────────────────────────────────────────────────────┘ │
  └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -313,7 +313,8 @@ CoralNPU เขียนด้วย Chisel และใช้ firtool แปล
 
 | Problem | Solution |
 |---|---|
-| `SRAM model not found` | รัน `make pdk` หรือส่งพาธเอง: `make sim SRAM_MODEL=/path/to/sky130_sram_2kbyte_1rw1r_32x512_8.v` |
+| `Scope index expression is not constant: addr0_reg` ใน `sky130_sram_2kbyte_1rw1r_32x512_8.v` | โมเดลของ PDK ใช้ `mem` ก่อนประกาศ Icarus 13 (ใน nix-shell) ไม่ยอม ตั้งแต่ zip รุ่นนี้ Makefile สร้างสำเนาที่แก้แล้วไว้ที่ `build/*.sim.v` ให้อัตโนมัติ (`scripts/patch_sram_model.py`) ถ้ายังเจอให้ `make clean` แล้วรันใหม่ |
+| `SRAM model not found` | รัน `make pdk` หรือส่งพาธเอง: `make sim SRAM_MODEL_PDK=/path/to/sky130_sram_2kbyte_1rw1r_32x512_8.v` |
 | `sim-real` ขึ้น `fault=1` | โปรแกรมถูกคอมไพล์ให้ใช้คำสั่ง vector/float ที่ core ไม่มี ให้ตรวจ `copts` ใน `sw/BUILD.bazel` และใช้ target `_lite` กับ VARIANT=lite |
 | Verilator error `--timing` | ต้องใช้ Verilator ≥ 5.020 (ใช้ตัวที่มากับ nix-shell) |
 

@@ -42,7 +42,9 @@ else
   SW_TARGET  := sky130_gpio_demo
 endif
 
-SRAM_MODEL   ?= $(PDK_ROOT)/$(PDK)/libs.ref/sky130_sram_macros/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v
+SRAM_MODEL_PDK ?= $(PDK_ROOT)/$(PDK)/libs.ref/sky130_sram_macros/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v
+# simulator-friendly copy (see scripts/patch_sram_model.py)
+SRAM_MODEL   := build/sky130_sram_2kbyte_1rw1r_32x512_8.sim.v
 GLUE_RTL     := rtl/soc/spi_axi_bridge.v rtl/soc/axi_gpio_slave.v rtl/soc/coralnpu_soc.v \
                 rtl/sky130/Sram_sky130.v rtl/sky130/ClockGate_sky130.v
 BUILD        := build
@@ -82,7 +84,7 @@ rtl:
 chip-top:
 	python3 scripts/gen_chip_top.py
 
-lint: rtl/generated/CoralNPUCore.sv
+lint: rtl/generated/CoralNPUCore.sv $(SRAM_MODEL)
 	@mkdir -p $(BUILD)
 	verilator --lint-only -Wno-fatal -Wno-DECLFILENAME -Wno-UNUSEDSIGNAL -Wno-PINCONNECTEMPTY \
 	  -DCORALNPU_BEHAV_CLOCKGATE --top-module coralnpu_soc \
@@ -101,19 +103,25 @@ sw:
 sim: $(BUILD)/tb_soc.vvp
 	cd $(BUILD) && vvp -n tb_soc.vvp | grep -v -E "Reading|Writing"
 
-$(BUILD)/tb_soc.vvp: tb/tb_soc.v tb/core_stub.v tb/spi_tasks.vh $(GLUE_RTL)
+$(SRAM_MODEL): $(SRAM_MODEL_PDK) scripts/patch_sram_model.py
 	@mkdir -p $(BUILD)
-	@test -f $(SRAM_MODEL) || { echo "SRAM model not found: $(SRAM_MODEL) (run 'make pdk')"; exit 1; }
+	python3 scripts/patch_sram_model.py $< $@
+
+$(SRAM_MODEL_PDK):
+	@echo "SRAM model not found: $@ (run 'make pdk')"; exit 1
+
+$(BUILD)/tb_soc.vvp: tb/tb_soc.v tb/core_stub.v tb/spi_tasks.vh $(GLUE_RTL) $(SRAM_MODEL)
+	@mkdir -p $(BUILD)
 	iverilog -g2012 -Itb -DCORALNPU_BEHAV_CLOCKGATE -o $@ \
 	  tb/tb_soc.v tb/core_stub.v $(GLUE_RTL) $(SRAM_MODEL)
 
-sim-sram:
+sim-sram: $(SRAM_MODEL)
 	@mkdir -p $(BUILD)
 	iverilog -g2012 -o $(BUILD)/tb_sram.vvp tb/tb_sram.v rtl/sky130/Sram_sky130.v $(SRAM_MODEL)
 	cd $(BUILD) && vvp -n tb_sram.vvp | grep -v -E "Reading|Writing"
 
 # Real CoralNPU RTL + program loaded over SPI (Verilator >= 5.020, e.g. inside nix-shell)
-sim-real: rtl/generated/CoralNPUCore.sv
+sim-real: rtl/generated/CoralNPUCore.sv $(SRAM_MODEL)
 	@test -n "$(ELF)" || { echo "usage: make sim-real ELF=build/$(SW_TARGET).elf [EXPECT=81]"; exit 1; }
 	@mkdir -p $(BUILD)
 	python3 sw/spi_host.py $(ELF) --variant $(VARIANT) --hex $(BUILD)/prog.hex
