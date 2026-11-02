@@ -6,6 +6,7 @@
 //   make sim-real ELF=<path/to/sky130_gpio_demo.elf> EXPECT=81
 //
 // plusargs:  +PROG=<file from sw/spi_host.py --hex>  +EXPECT=<hex gpio_out>
+// waves:     make sim-real ... WAVES=1  ->  gtkwave build/tb_soc_real.fst
 // Simulator: Verilator >= 5.020 (--binary --timing)
 // -----------------------------------------------------------------------------
 `timescale 1ns / 1ps
@@ -41,6 +42,14 @@ module tb_soc_real;
   integer i, cycles;
 
   always @(gpio_out) $display("[%0t ns] gpio_out = 0x%02h", $time, gpio_out);
+
+`ifdef WAVES
+  // make sim-real WAVES=1  ->  build/tb_soc_real.fst (tb + SoC + core ports)
+  initial begin
+    $dumpfile("tb_soc_real.fst");
+    $dumpvars(3, tb_soc_real);
+  end
+`endif
 
   initial begin
     if (!$value$plusargs("PROG=%s", prog_file)) prog_file = "prog.hex";

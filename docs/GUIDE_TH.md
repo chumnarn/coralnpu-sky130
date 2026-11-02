@@ -276,9 +276,14 @@ CoralNPU เขียนด้วย Chisel และใช้ firtool แปล
    ```bash
    make sim-real VARIANT=lite ELF=build/sky130_gpio_demo_lite.elf EXPECT=81
    ```
-5. (ทางเลือก) เปิด waveform:
+5. (ทางเลือก) เปิด waveform ของ test-bench แบบ stub (ไฟล์เกิดจาก `make sim` จึงต้องรัน `make sim` หลัง `make clean` ทุกครั้ง):
    ```bash
-   gtkwave build/tb_soc.vcd
+   make sim && gtkwave build/tb_soc.vcd
+   ```
+6. (ทางเลือก) เปิด waveform ของ core จริง (บันทึก tb, SoC และพอร์ตของ core ลึก 3 ชั้นเป็นไฟล์ FST):
+   ```bash
+   make sim-real VARIANT=lite ELF=build/sky130_gpio_demo_lite.elf EXPECT=81 WAVES=1
+   gtkwave build/tb_soc_real.fst
    ```
 
 > ✅ **จุดตรวจสอบ:** `make sim` ต้องแสดง `*** TEST PASSED ***` และ `make sim-sram` ต้องแสดง `*** SRAM TEST PASSED ***`

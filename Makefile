@@ -33,6 +33,10 @@ BAZEL        ?= bazel
 CORALNPU_DIR ?= $(ROOT)/third_party/coralnpu
 ELF          ?=
 EXPECT       ?= 81
+WAVES        ?= 0
+ifeq ($(WAVES),1)
+  VL_WAVES   := --trace-fst --trace-structs -DWAVES
+endif
 
 ifeq ($(VARIANT),lite)
   CONFIG     := config.lite.yaml
@@ -59,7 +63,7 @@ help:
 	@echo ""
 	@echo "  setup     : tools pdk fetch"
 	@echo "  RTL       : rtl  chip-top  lint"
-	@echo "  verify    : sim  sim-sram  sw  sim-real ELF=<file.elf> EXPECT=<hex>"
+	@echo "  verify    : sim  sim-sram  sw  sim-real ELF=<file.elf> EXPECT=<hex> [WAVES=1]"
 	@echo "  implement : soc  chip        (FRESH=1 to restart, FROM=<step> to resume)"
 	@echo "  results   : report-soc report-chip view-soc view-chip"
 	@echo ""
@@ -100,13 +104,21 @@ sw: check-coralnpu
 	mkdir -p $(CORALNPU_DIR)/examples/sky130
 	cp sw/gpio_demo.c sw/BUILD.bazel $(CORALNPU_DIR)/examples/sky130/
 	cd $(CORALNPU_DIR) && $(BAZEL) build //examples/sky130:$(SW_TARGET).elf
-	mkdir -p $(BUILD)
-	cp -fL $(CORALNPU_DIR)/bazel-bin/examples/sky130/$(SW_TARGET).elf $(BUILD)/
-	@echo ">>> $(BUILD)/$(SW_TARGET).elf"
+	@mkdir -p $(BUILD)
+	@# The ELF is built in a transitioned configuration (bazel-out/k8-fastbuild-ST-<hash>/),
+	@# not in bazel-bin/, so ask Bazel where it is (fallback: search bazel-out).
+	@elf=$$(cd $(CORALNPU_DIR) && $(BAZEL) cquery --output=files //examples/sky130:$(SW_TARGET).elf 2>/dev/null | grep '\.elf$$' | head -1); \
+	if [ -z "$$elf" ] || [ ! -f "$(CORALNPU_DIR)/$$elf" ]; then \
+	  elf=$$(cd $(CORALNPU_DIR) && find -L bazel-out -path '*/bin/examples/sky130/$(SW_TARGET).elf' -newer examples/sky130/gpio_demo.c 2>/dev/null | head -1); \
+	fi; \
+	test -n "$$elf" || { echo "ERROR: $(SW_TARGET).elf not found under $(CORALNPU_DIR)/bazel-out"; exit 1; }; \
+	cp -fL "$(CORALNPU_DIR)/$$elf" $(BUILD)/$(SW_TARGET).elf; \
+	echo ">>> $(BUILD)/$(SW_TARGET).elf  (from $$elf)"
 
 # ----------------------------------------------------------------- simulation
 sim: $(BUILD)/tb_soc.vvp
 	cd $(BUILD) && vvp -n tb_soc.vvp | grep -v -E "Reading|Writing"
+	@echo ">>> waveform: gtkwave $(BUILD)/tb_soc.vcd"
 
 $(SRAM_MODEL): $(SRAM_MODEL_PDK) scripts/patch_sram_model.py
 	@mkdir -p $(BUILD)
@@ -130,10 +142,11 @@ sim-real: rtl/generated/CoralNPUCore.sv $(SRAM_MODEL)
 	@test -n "$(ELF)" || { echo "usage: make sim-real ELF=build/$(SW_TARGET).elf [EXPECT=81]"; exit 1; }
 	@mkdir -p $(BUILD)
 	python3 sw/spi_host.py $(ELF) --variant $(VARIANT) --hex $(BUILD)/prog.hex
-	verilator --binary --timing -j 0 -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN \
+	verilator --binary --timing -j 0 $(VL_WAVES) -Wno-fatal -Wno-lint -Wno-style -Wno-MULTIDRIVEN \
 	  -DCORALNPU_BEHAV_CLOCKGATE -Itb --top-module tb_soc_real -Mdir $(BUILD)/obj_real \
 	  tb/tb_soc_real.v rtl/generated/CoralNPUCore.sv $(GLUE_RTL) $(SRAM_MODEL)
 	cd $(BUILD) && ./obj_real/Vtb_soc_real +PROG=prog.hex +EXPECT=$(EXPECT) | grep -v -E "Reading|Writing"
+	@if [ "$(WAVES)" = "1" ]; then echo ">>> waveform: gtkwave $(BUILD)/tb_soc_real.fst"; fi
 
 # ----------------------------------------------------------------- implementation
 soc: rtl/generated/CoralNPUCore.sv
