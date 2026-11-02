@@ -7,8 +7,12 @@
 # Run with:  make chip VARIANT=lite
 # =============================================================================
 meta:
-  version: 2
+  version: 3
   flow: Chip
+  substituting_steps:
+    # Magic reports pad/filler overlaps that can be ignored (same as the
+    # LibreLane full_chip_sky130 reference design)
+    Checker.IllegalOverlap: null
 
 DESIGN_NAME: chip_top
 
@@ -26,16 +30,17 @@ RUN_LINTER: false
 
 # ---------------------------------------------------------------- clocking
 CLOCK_PORT: clk_PAD
-CLOCK_NET: core_clk
+CLOCK_NET: pad_clk/IN
 CLOCK_PERIOD: 40              # ns -> 25 MHz
 PNR_SDC_FILE: dir::chip_top.sdc
 SIGNOFF_SDC_FILE: dir::chip_top.sdc
 
 # ---------------------------------------------------------------- die / core
-# sky130_ef_io pads are 200 um tall, corners 200 x 204 um.
+# sky130_ef_io pads are 200 um tall, corners 200 x 204 um (seal ring is
+# added outside DIE_AREA by KLayout.SealRing).
 FP_SIZING: absolute
 DIE_AREA:  [0, 0, 4000, 4000]
-CORE_AREA: [420, 420, 3580, 3580]
+CORE_AREA: [300, 300, 3700, 3700]
 PL_TARGET_DENSITY_PCT: 45
 FP_MACRO_HORIZONTAL_HALO: 20
 FP_MACRO_VERTICAL_HALO: 20
@@ -44,8 +49,10 @@ RT_MAX_LAYER: met5
 MACRO_PLACEMENT_CFG: dir::macro_placement.cfg
 
 # ---------------------------------------------------------------- pad ring
+# Pad spacing is snapped to a multiple of 2 um (LibreLane >= 3.1) so the
+# remaining space is always divisible by the 1 um pad site.
+PAD_SPACING_MULTIPLE: 2.0
 # The PAD_* lists between the markers are rewritten by scripts/gen_chip_top.py
-PAD_CFG: dir::pad_cfg.tcl
 # >>> PADS (generated)
 PAD_SOUTH:
   - pad_vssio_0
@@ -86,20 +93,31 @@ PAD_WEST:
 # ---------------------------------------------------------------- power
 VDD_NETS: [VCCD]
 GND_NETS: [VSSD]
+# Pad power pins come from the USE_POWER_PINS connections in chip_top.v;
+# the SRAMs sit inside flattened Chisel logic, so hook them up explicitly.
 PDN_MACRO_CONNECTIONS:
   - ".*u_sky130sram.* VCCD VSSD vccd1 vssd1"
-  - "pad_.* VCCD VSSD VCCD VSSD"
 PDN_ENABLE_PINS: false
 PDN_CORE_RING: true
-PDN_CORE_RING_CONNECT_TO_PADS: true
-PDN_CORE_RING_VWIDTH: 20
-PDN_CORE_RING_HWIDTH: 20
+PDN_CORE_RING_VWIDTH: 15            # < 30 um: no metal slotting required
+PDN_CORE_RING_HWIDTH: 15
 PDN_CORE_RING_VSPACING: 5
 PDN_CORE_RING_HSPACING: 5
-PDN_CORE_RING_VOFFSET: 12
-PDN_CORE_RING_HOFFSET: 12
+PDN_CORE_VERTICAL_LAYER: met2
+PDN_CORE_HORIZONTAL_LAYER: met3
+PDN_CORE_RING_CONNECT_TO_PADS: true
+PDN_CORE_RING_CONNECT_TO_PAD_LAYERS: [met3]
 PDN_HORIZONTAL_HALO: 15
 PDN_VERTICAL_HALO: 15
+ERROR_ON_PDN_VIOLATIONS: false      # pad terminals give false positives
+
+# Internal pad sub-cells that have no signal connections by design
+IGNORE_DISCONNECTED_MODULES:
+  - sky130_fd_sc_hd__conb_1
+  - sky130_fd_io__top_power_hvc_wpad
+  - sky130_fd_io__top_ground_hvc_wpad
+  - sky130_fd_io__top_power_lvc_wpad
+  - sky130_fd_io__top_ground_lvc_wpad
 
 # ---------------------------------------------------------------- macros
 MACROS:
@@ -120,5 +138,5 @@ MACROS:
 # ---------------------------------------------------------------- routing / misc
 GRT_ALLOW_CONGESTION: true
 RUN_HEURISTIC_DIODE_INSERTION: true
-ERROR_ON_KLAYOUT_DRC: false
+ERROR_ON_KLAYOUT_DRC: false   # OpenRAM bitcells + OpenROAD issue #10256
 ERROR_ON_KLAYOUT_DENSITY: false

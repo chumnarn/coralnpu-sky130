@@ -5,14 +5,14 @@
 #
 #   1. apt packages   : git, build tools, Icarus Verilog, GTKWave, Python
 #   2. Bazelisk       : runs the Bazel version pinned by CoralNPU (.bazelversion)
-#   3. Nix + LibreLane: LibreLane 3.0.17 with Yosys/OpenROAD/Magic/KLayout/Netgen
+#   3. Nix + LibreLane: LibreLane 3.1.0.dev4 with Yosys/OpenROAD/Magic/KLayout/Netgen
 #                       from the FOSSi binary cache
 #
-# Docker alternative to step 3:  pip3 install librelane==3.0.17
+# Docker alternative to step 3:  pip3 install git+https://github.com/librelane/librelane@3.1.0.dev4
 #                                and use LIBRELANE="librelane --dockerized"
 # -----------------------------------------------------------------------------
 set -euo pipefail
-LIBRELANE_REV="${LIBRELANE_REV:-3.0.17}"
+LIBRELANE_REV="${LIBRELANE_REV:-3.1.0.dev4}"
 LIBRELANE_DIR="${LIBRELANE_DIR:-$HOME/librelane}"
 
 step() { echo; echo "=== $* ==="; }

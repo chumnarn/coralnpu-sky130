@@ -43,6 +43,17 @@ if [[ "${FRESH:-0}" == "1" && -d "${RUNS}/${TAG}" ]]; then
   rm -rf "${RUNS}/${TAG}"
 fi
 
+# The chip configs use LibreLane >= 3.1 features (PAD_SPACING_MULTIPLE,
+# PDN_CORE_RING_CONNECT_TO_PAD_LAYERS, meta.version 3).
+LL_VER="$(${LIBRELANE} --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.]*' | head -1 || true)"
+echo ">>> LibreLane ${LL_VER:-unknown}"
+LL_MM="$(echo "${LL_VER}" | cut -d. -f1-2)"
+if [[ -n "${LL_MM}" ]] && ! printf '3.1\n%s\n' "${LL_MM}" | sort -V -C; then
+  echo "ERROR: LibreLane ${LL_VER} is too old - this project needs >= 3.1.0.dev4"
+  echo "       (git -C ~/librelane checkout 3.1.0.dev4 && nix-shell ~/librelane/shell.nix)"
+  exit 1
+fi
+
 ll() { echo "+ ${LIBRELANE} $*"; ${LIBRELANE} "$@"; }
 
 if [[ -n "${FROM:-}" ]]; then

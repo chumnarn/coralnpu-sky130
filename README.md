@@ -1,7 +1,7 @@
 # coralnpu-sky130
 
 Full-chip implementation of Google's **CoralNPU** (scalar `CoreMiniAxi`) on the
-**SkyWater SKY130** PDK with **LibreLane 3.0.17**: Chisel RTL -> SKY130 SRAM /
+**SkyWater SKY130** PDK with **LibreLane 3.1** (tested config-level with 3.1.0.dev4): Chisel RTL -> SKY130 SRAM /
 clock-gate mapping -> SPI-bootable SoC -> pad ring, seal ring, fill -> GDS.
 
 คู่มือภาษาไทยแบบ step-by-step: **[docs/GUIDE_TH.md](docs/GUIDE_TH.md)**

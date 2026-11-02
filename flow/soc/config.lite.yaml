@@ -6,7 +6,7 @@
 # Run with:  make soc VARIANT=lite           (see flow/scripts/run_flow.sh)
 # =============================================================================
 meta:
-  version: 2
+  version: 3
   flow: Classic
 
 DESIGN_NAME: coralnpu_soc

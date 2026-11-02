@@ -14,7 +14,8 @@ VARIANT      ?= full
 TAG          ?= main
 PDK_ROOT     ?= $(HOME)/.ciel
 PDK          ?= sky130A
-SKY130_HASH  ?= 8afc8346a57fe1ab7934ba5a6056ea8b43078e71
+# sky130 open_pdks build pinned by LibreLane 3.1.0 (librelane/pdk_hashes.yaml)
+SKY130_HASH  ?= 792ef67037d74c8c51811eab3ce23cf793491296
 LIBRELANE    ?= librelane
 BAZEL        ?= bazel
 CORALNPU_DIR ?= $(ROOT)/third_party/coralnpu
@@ -57,7 +58,7 @@ tools:
 
 pdk:
 	ciel enable --pdk-root $(PDK_ROOT) --pdk-family sky130 $(SKY130_HASH)
-	@ls $(PDK_ROOT)/$(PDK)/libs.ref | grep -E "sky130_fd_sc_hd|sky130_fd_io|sky130_sram_macros"
+	@bash scripts/check_pdk.sh "$(PDK_ROOT)" "$(PDK)" "$(SKY130_HASH)"
 
 fetch:
 	bash scripts/fetch_coralnpu.sh

@@ -1,7 +1,7 @@
 # คู่มือ Full-Chip Implementation ของ CoralNPU ด้วย LibreLane และ SKY130 PDK
 
-**Version:** 1.0
-**Last Updated:** 30 ตุลาคม 2026
+**Version:** 1.1 (LibreLane 3.1)
+**Last Updated:** 2 พฤศจิกายน 2026
 **Duration:** ประมาณ 1–2 วันทำงาน (ส่วนใหญ่เป็นเวลารอเครื่องรัน flow)
 **Level:** Intermediate – Advanced
 **Author / Instructor:** โปรเจกต์ `coralnpu-sky130` (เตรียมให้ chumnarn@gmail.com)
@@ -9,8 +9,8 @@
 | รายการ | เวอร์ชันที่ใช้ในคู่มือ |
 |---|---|
 | CoralNPU (google-coral/coralnpu) | commit `11619e2` (29 ต.ค. 2026) |
-| LibreLane | 3.0.17 |
-| PDK | sky130A ผ่าน ciel (hash `8afc834…` ตามที่ LibreLane 3.0.17 ล็อกไว้) |
+| LibreLane | 3.1.0.dev4 (ต้อง ≥ 3.1 เพราะ Chip flow ใช้ตัวแปรใหม่) |
+| PDK | sky130A ผ่าน ciel (open_pdks `792ef67…` ตามที่ LibreLane 3.1.0 ล็อกไว้) |
 | Bazel | 9.1.0 (ผ่าน Bazelisk ตาม `.bazelversion` ของ CoralNPU) |
 
 ---
@@ -38,13 +38,13 @@ CoralNPU เป็น NPU แบบ open source ของ Google Research ที
  │ ┌─▼────▼──────────▼────────────────────▼───────▼────────────┴─────────┐ │
  │ │ coralnpu_soc                                                        │ │
  │ │  ┌──────────────┐ AXI4 128b ┌───────────────────────────────┐       │ │
- │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)    │       │ │
- │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR    │       │ │
- │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB  │       │ │
- │ │                             │  DTCM 32K = 16 x OpenRAM 2KB  │       │ │
+ │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)     │       │ │
+ │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR     │       │ │
+ │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB   │       │ │
+ │ │                             │  DTCM 32K = 16 x OpenRAM 2KB   │       │ │
  │ │  ┌──────────────┐ AXI4 128b └──────────────┬────────────────┘       │ │
  │ │  │axi_gpio_slave│◄─────────────────────────┘ (master)               │ │
- │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000         │ │
+ │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000          │ │
  │ └─────────────────────────────────────────────────────────────────────┘ │
  └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -84,7 +84,7 @@ CoralNPU เป็น NPU แบบ open source ของ Google Research ที
 **ซอฟต์แวร์** (สคริปต์ `scripts/install_tools.sh` ติดตั้งให้)
 
 - Ubuntu 22.04/24.04 x86_64 (หรือ WSL2)
-- Nix + LibreLane 3.0.17 ซึ่งรวม Yosys (+slang), OpenROAD, Magic, KLayout, Netgen และ Verilator 5
+- Nix + LibreLane 3.1.0.dev4 ซึ่งรวม Yosys 0.69 (มี slang ในตัว), OpenROAD, Magic 8.3.677, KLayout 0.30.12, Netgen และ Verilator 5.046
 - Bazelisk สำหรับ build CoralNPU (Bazel 9.1.0) พร้อม gcc/clang และ Java
 - Icarus Verilog และ GTKWave สำหรับ simulation
 - Internet สำหรับดาวน์โหลด CoralNPU dependency (Maven, GitHub, BCR) และ PDK
@@ -116,7 +116,7 @@ coralnpu-sky130/
 ├── sw/                           # gpio_demo.c, BUILD.bazel, spi_host.py (ตัวโหลดผ่าน SPI)
 └── flow/
     ├── soc/   config.yaml config.lite.yaml coralnpu_soc.sdc
-    ├── chip/  config.yaml config.lite.yaml chip_top.sdc pad_cfg.tcl
+    ├── chip/  config.yaml config.lite.yaml chip_top.sdc
     └── scripts/ run_flow.sh place_srams.py report.py
 ```
 
@@ -150,11 +150,36 @@ coralnpu-sky130/
    make pdk
    ```
 
-> ✅ **จุดตรวจสอบ:** `make pdk` ต้องแสดง `sky130_fd_io`, `sky130_fd_sc_hd` และ `sky130_sram_macros`
+> ✅ **จุดตรวจสอบ:** `make pdk` ต้องขึ้น `ok` ทุกบรรทัดและจบด้วย `>>> PDK OK` (สคริปต์ `scripts/check_pdk.sh` ตรวจไฟล์ standard cell, pad และ SRAM ที่ flow ต้องใช้ทีละไฟล์)
 
 > 📝 **หมายเหตุ:** ทุกคำสั่งตั้งแต่นี้ไปให้รัน **ภายใน nix-shell** ยกเว้นขั้นที่ใช้ Bazel ซึ่งรันได้ทั้งในและนอก nix-shell
 
-> 💡 **เคล็ดลับ (Docker แทน Nix):** `pip3 install librelane==3.0.17` แล้วใส่ `LIBRELANE="librelane --dockerized"` นำหน้าคำสั่ง make ทุกครั้ง เช่น `LIBRELANE="librelane --dockerized" make soc` โดย `run_flow.sh` จะรันจาก root ของโปรเจกต์ container จึงมองเห็นทั้ง `rtl/` และ `flow/`
+> 💡 **เคล็ดลับ (Docker แทน Nix):** `pip3 install git+https://github.com/librelane/librelane@3.1.0.dev4` แล้วใส่ `LIBRELANE="librelane --dockerized"` นำหน้าคำสั่ง make ทุกครั้ง เช่น `LIBRELANE="librelane --dockerized" make soc` โดย `run_flow.sh` จะรันจาก root ของโปรเจกต์ container จึงมองเห็นทั้ง `rtl/` และ `flow/`
+
+### อัปเกรดจาก LibreLane 3.0.x (ถ้าติดตั้งไว้ก่อนแล้ว)
+
+1. ออกจาก nix-shell เดิม แล้วสลับ LibreLane ไปเวอร์ชัน 3.1:
+   ```bash
+   git -C ~/librelane fetch --tags
+   git -C ~/librelane checkout 3.1.0.dev4
+   ```
+2. เข้า nix-shell ใหม่ (จะดาวน์โหลดเครื่องมือชุดใหม่ เช่น Yosys 0.69, Magic 8.3.677, KLayout 0.30.12):
+   ```bash
+   nix-shell ~/librelane/shell.nix
+   librelane --version
+   ```
+3. Enable PDK ตัวใหม่ที่ LibreLane 3.1 ล็อกไว้ (open_pdks `792ef67…`):
+   ```bash
+   make pdk
+   ```
+4. ลบ run เก่าที่สร้างด้วย 3.0.x เพราะ state และ PDK ไม่ตรงกันแล้ว:
+   ```bash
+   rm -rf flow/soc/runs flow/chip/runs
+   ```
+
+> 📝 **หมายเหตุ:** สิ่งที่เปลี่ยนในโปรเจกต์สำหรับ 3.1: config ใช้ `meta.version: 3`, เลิกใช้ `pad_cfg.tcl` ที่ copy มาแก้ (ใช้ `PAD_SPACING_MULTIPLE` และ `PAD_ROTATION_*` ของ PDK แทน), core ring ย้ายไป met2/met3 พร้อม `PDN_CORE_RING_CONNECT_TO_PAD_LAYERS`, และ `chip_top.v` ต่อ rail ของ pad ring ใต้ `USE_POWER_PINS` ตาม reference design `full_chip_sky130` ของ LibreLane
+
+> ⚠️ **คำเตือน:** 3.1.0.dev4 เป็นรุ่น pre-release (ยังไม่มี 3.1.0 บน PyPI ณ วันที่เขียน) เมื่อออก 3.1.0 ตัวจริง ให้ checkout tag นั้นแทนได้เลย โดย `run_flow.sh` รับทุกเวอร์ชันตั้งแต่ 3.1 ขึ้นไป
 
 ### Troubleshooting
 
@@ -163,6 +188,8 @@ coralnpu-sky130/
 | `nix: command not found` | ยังไม่ได้เปิด terminal ใหม่หลังติดตั้ง Nix |
 | smoke test ดาวน์โหลด PDK ไม่ได้ | ตรวจ proxy/firewall ว่าออก `github.com` และ `fossi-foundation.github.io` ได้ |
 | `make pdk` ไม่พบ `sky130_sram_macros` | ลบ `~/.ciel/ciel/sky130/versions/<hash>` แล้วรัน `make pdk` ใหม่ |
+| `make pdk` ขึ้น `MISSING` | รัน `ciel enable --pdk-root ~/.ciel --pdk-family sky130 -l all <hash>` ตามที่สคริปต์แนะนำ |
+| `make pdk` ขึ้น `libs.ref not found` | ตัวแปร `PDK`/`PDK_ROOT` ใน environment ทับค่าของ Makefile ให้ `unset PDK PDK_ROOT` หรือส่งค่าเอง `make pdk PDK=sky130A PDK_ROOT=~/.ciel` |
 
 ---
 
@@ -391,6 +418,7 @@ LibreLane 3 ไม่มีขั้นตอนวาง macro อัตโน�
 |---|---|
 | `place_srams: core area too small` | ขยาย `DIE_AREA` หรือลด `--hgap/--vgap` ของ `place_srams.py` |
 | GPL/DPL ล้มเหลว utilization สูง | ลด `PL_TARGET_DENSITY_PCT` (เช่น 40) หรือขยาย die |
+| พื้นที่ cell หลัง synthesis ใหญ่กว่าที่คาด | LibreLane 3.1 เปลี่ยนค่าเริ่มต้น `SYNTH_STRATEGY` เป็น `DELAY 4` ถ้า die ไม่พอให้ลองใส่ `SYNTH_STRATEGY: AREA 1` ใน config (ที่ 25 MHz ไม่จำเป็นต้องเน้น delay) |
 | Setup violation | เพิ่ม `CLOCK_PERIOD` (เช่น 50 ns) เพราะ OpenRAM macro มี clock-to-q ช้า หรือดู critical path ใน `*-openroad-stapostpnr/` |
 | Hold violation จำนวนมากที่ SRAM | ตรวจว่า clock ไปที่ `clk0` ของ macro ผ่าน CTS แล้ว และรัน `FROM=OpenROAD.ResizerTimingPostCTS` |
 | `No match found for regular expression '.*u_sky130sram.*'` | ไม่พบ macro ใน netlist ให้ตรวจว่า `prepare_rtl.py` ถอด `Sram` ออกและ `Sram_sky130.v` อยู่ใน `VERILOG_FILES` |
@@ -412,11 +440,15 @@ LibreLane `Chip` flow คือ Classic flow ที่เพิ่ม `OpenROAD.
 
 | ตัวแปร | ค่า | ความหมาย |
 |---|---|---|
-| `DIE_AREA` / `CORE_AREA` | 5000² / 420…4580 | pad สูง 200 µm, corner 200×204 µm |
+| `DIE_AREA` / `CORE_AREA` | 5000² / 300…4700 | pad สูง 200 µm, corner 200×204 µm |
 | `PAD_SOUTH/EAST/NORTH/WEST` | 30 pad | สร้างจาก `gen_chip_top.py` |
-| `PAD_CFG` | `pad_cfg.tcl` | สำเนา default ที่ snap ระยะ pad เข้ากับ site grid แทนการหยุดด้วย error |
+| `PAD_SPACING_MULTIPLE` | `2.0` | (ใหม่ใน 3.1) ปัดระยะห่าง pad เป็นทวีคูณ 2 µm ให้เศษหารด้วย site 1 µm ลงตัวเสมอ |
+| `PAD_ROTATION_*` | `R180` (จาก PDK) | (ใหม่ใน 3.1) หมุน pad ของ sky130 ให้ถูกทิศ |
 | `VDD_NETS` / `GND_NETS` | `VCCD` / `VSSD` | ไฟ 1.8 V ของ core |
-| `PDN_MACRO_CONNECTIONS` | `u_sky130sram` และ `pad_.*` | ต่อ `vccd1/vssd1` ของ SRAM และ `VCCD/VSSD` ของ pad เข้ากับ net เดียวกัน |
+| `PDN_MACRO_CONNECTIONS` | `.*u_sky130sram.*` | ต่อ `vccd1/vssd1` ของ SRAM เข้ากับ `VCCD/VSSD` (ไฟของ pad มาจากการต่อใน `chip_top.v` ใต้ `USE_POWER_PINS`) |
+| `PDN_CORE_VERTICAL/HORIZONTAL_LAYER` | `met2` / `met3` | core ring อยู่บน met2/met3 |
+| `PDN_CORE_RING_CONNECT_TO_PAD_LAYERS` | `[met3]` | (ใหม่ใน 3.1) ต่อ core ring เข้าขาไฟของ pad ผ่าน met3 เท่านั้น |
+| `IGNORE_DISCONNECTED_MODULES` | power/ground `wpad` ของ pad | ไม่ให้ checker นับเป็น error |
 | `PDN_CORE_RING_CONNECT_TO_PADS` | `true` | core ring ต่อเข้ากับ power pad |
 
 Pad แบบ `sky130_ef_io__gpiov2_pad` ต้องตั้งขา control ให้ถูก ซึ่ง `gen_chip_top.py` ทำให้แล้ว:
@@ -426,8 +458,8 @@ Pad แบบ `sky130_ef_io__gpiov2_pad` ต้องตั้งขา control 
 | `DM[2:0]` | `001` (input only) | `110` (strong push-pull) |
 | `OE_N` | 1 | 0 |
 | `INP_DIS` | 0 | 1 |
-| `HLD_H_N`, `ENABLE_H`, `ENABLE_VDDA_H` | `TIE_HI_ESD` ของ pad เอง | `TIE_HI_ESD` |
-| `ENABLE_INP_H`, `ENABLE_VSWITCH_H` | `TIE_LO_ESD` ของ pad เอง | `TIE_LO_ESD` |
+| `HLD_H_N`, `ENABLE_H`, `ENABLE_INP_H` | `TIE_HI_ESD` ของ pad เอง | `TIE_HI_ESD` |
+| `ENABLE_VDDA_H`, `ENABLE_VSWITCH_H` | `TIE_LO_ESD` ของ pad เอง (ไม่ใช้โดเมน VDDA) | `TIE_LO_ESD` |
 | `ENABLE_VDDIO` | 1 | 1 |
 
 ### Instructions
@@ -459,7 +491,7 @@ Pad แบบ `sky130_ef_io__gpiov2_pad` ต้องตั้งขา control 
 
 > ✅ **จุดตรวจสอบ:** ใน KLayout ต้องเห็น pad 30 ตัวรอบชิป, corner 4 มุม, filler `com_bus_slice` เต็มช่องว่าง, seal ring รอบนอก และ SRAM เรียงแถวด้านล่างของ core
 
-> ⚠️ **คำเตือน:** Pad ring ในโปรเจกต์นี้ต่อเฉพาะ `VCCD/VSSD` (1.8 V) และ `VDDIO/VSSIO` (3.3 V) ส่วน rail `VDDA/VSSA/VCCHIB/VSWITCH` ของ ring ไม่มี pad จ่ายไฟ ถ้าจะ tape-out จริงต้องเพิ่ม pad หรือ connect slice ของ `sky130_ef_io` (เช่น `sky130_ef_io__connect_vcchib_vccd_and_vswitch_vddio_slice_20um`) แล้วรัน LVS ยืนยัน หรือใช้ harness ของ shuttle (Caravel/OpenFrame) แทน pad ring ของตนเอง
+> ⚠️ **คำเตือน:** Pad ring ในโปรเจกต์นี้ (เช่นเดียวกับ reference design `full_chip_sky130` ของ LibreLane) ต่อเฉพาะ `VCCD/VSSD` (1.8 V) และ `VDDIO/VSSIO` (3.3 V) ส่วน rail `VDDA/VSSA/VCCHIB/VSWITCH` ของ ring ไม่มี pad จ่ายไฟ ถ้าจะ tape-out จริงต้องเพิ่ม pad หรือ connect slice ของ `sky130_ef_io` (เช่น `sky130_ef_io__connect_vcchib_vccd_and_vswitch_vddio_slice_20um`) และวงจร power-on-reset สำหรับ `ENABLE_H` แล้วรัน LVS ยืนยัน หรือใช้ harness ของ shuttle (Caravel/OpenFrame) แทน pad ring ของตนเอง
 
 ### Expected Result
 
@@ -472,8 +504,9 @@ Pad แบบ `sky130_ef_io__gpiov2_pad` ต้องตั้งขา control 
 |---|---|
 | `Sum of cell widths for PAD_xxx is larger than the width of this side` | ย้าย pad ไปด้านอื่นในตาราง `PADS` หรือขยาย `DIE_AREA` |
 | `No instance pad_xxx found` | `chip_top.v` กับ config ไม่ตรงกัน ให้รัน `make chip-top` |
-| `PDN_MACRO_CONNECTIONS ... No match` สำหรับ `pad_.*` | ตรวจว่า pad instance ไม่ถูก Yosys ลบ (ต้องมี `(* keep *)`) |
-| core ring ไม่ต่อกับ pad | ตรวจว่า power pad อยู่ห่าง core ring ไม่เกินช่วงที่ `-connect_to_pads` เอื้อมถึง (ลด `CORE_AREA` offset ให้ใกล้ pad) |
+| `Unknown key 'PAD_SPACING_MULTIPLE'` | ใช้ LibreLane เก่ากว่า 3.1 ให้ `git -C ~/librelane checkout 3.1.0.dev4` แล้วเข้า nix-shell ใหม่ (`run_flow.sh` ตรวจเวอร์ชันให้ก่อนรัน) |
+| `The remaining area for the pads ... is not divisible` | ปรับ `PAD_SPACING_MULTIPLE` (เช่น 4.0) หรือเปลี่ยน `DIE_AREA` ทีละ 2 µm |
+| core ring ไม่ต่อกับ pad | ตรวจว่า power pad อยู่ห่าง core ring ไม่เกินช่วงที่ `-connect_to_pads` เอื้อมถึง (ลด `CORE_AREA` offset ให้ใกล้ pad) และดูว่า `PDN_CORE_RING_CONNECT_TO_PAD_LAYERS` ตรงกับชั้นโลหะของขาไฟ pad |
 | KLayout density fail | ปรับ `KLAYOUT_FILLER_OPTIONS` หรือ config ตั้ง `ERROR_ON_KLAYOUT_DENSITY: false` ไว้เพื่อให้ flow จบก่อนแล้วค่อยแก้ |
 
 ---
@@ -587,7 +620,7 @@ LED ที่ `gpio_out[7:0]` วิ่งไปกลับ 2 รอบแล�
 
 | คำสั่ง | หน้าที่ |
 |---|---|
-| `make tools` | ติดตั้ง apt packages, Bazelisk, Nix, LibreLane 3.0.17 |
+| `make tools` | ติดตั้ง apt packages, Bazelisk, Nix, LibreLane 3.1.0.dev4 |
 | `make pdk` | enable sky130 PDK ด้วย ciel และตรวจ library |
 | `make fetch` | clone CoralNPU ที่ commit ที่ทดสอบ |
 | `make rtl VARIANT=…` | สร้าง `rtl/generated/CoralNPUCore.sv` |
@@ -635,7 +668,8 @@ LED ที่ `gpio_out[7:0]` วิ่งไปกลับ 2 รอบแล�
 | `make sim` (SPI bridge + AXI GPIO + SRAM wrapper + OpenRAM model) | ✅ ผ่าน (Icarus Verilog 12) |
 | `make sim-sram` (128/512/2048 entries, byte-mask, data hold) | ✅ ผ่าน |
 | Yosys + slang synthesis ของ `chip_top` (pads + SoC + SRAM, ใช้ stub core) | ✅ ผ่าน ได้ 30 pad + SRAM macro ครบ |
-| ตรวจ config ทั้ง 4 ไฟล์กับ LibreLane 3.0.17 `Config.load` | ✅ ผ่าน ไม่มี variable ที่ไม่รู้จัก |
+| ตรวจ config ทั้ง 4 ไฟล์กับ LibreLane 3.1.0.dev4 `Config.load` และ step id ที่ flow ใช้ | ✅ ผ่าน ไม่มี variable ที่ไม่รู้จัก |
+| Yosys + slang synthesis ของ `chip_top` ทั้งแบบมีและไม่มี `USE_POWER_PINS` | ✅ ผ่าน (22 / 30 พอร์ต ตามลำดับ) |
 | `place_srams.py`, `spi_host.py`, `prepare_rtl.py` (ทดสอบกับข้อมูลจำลอง) | ✅ ผ่าน |
 | Chisel/Bazel emit RTL ของ CoralNPU จริง | ⏳ ยังไม่ได้ทดสอบในสภาพแวดล้อมที่เตรียมงาน (เครือข่ายเข้า Maven/BCR ไม่ได้) |
 | LibreLane PnR เต็มรูปแบบ (soc/chip) | ⏳ ยังไม่ได้รันจริง ต้องใช้ PDK และเวลาหลายชั่วโมง ให้เริ่มจาก `VARIANT=lite` และดู Troubleshooting ในแต่ละ Lab |
