@@ -62,7 +62,10 @@ case "${PDK}" in sky130A|sky130B) ;; *)
 esac
 PDK_ARGS=(--pdk "${PDK}" --scl sky130_fd_sc_hd)
 [[ -n "${PDK_ROOT:-}" ]] && PDK_ARGS+=(--pdk-root "${PDK_ROOT}")
-[[ "${TARGET}" == "chip" ]] && PDK_ARGS+=(--pad sky130_ef_io)
+# Do NOT pass --pad / PAD_CELL_LIBRARY: LibreLane hands it to ciel as a library
+# name to download ("Unknown library sky130_ef_io"); the sky130 PDK config
+# already selects sky130_ef_io as the pad library.
+unset PAD_CELL_LIBRARY STD_CELL_LIBRARY
 echo ">>> PDK ${PDK} (${PDK_ROOT:-default ciel root}), SCL sky130_fd_sc_hd"
 
 ll() { echo "+ ${LIBRELANE} ${PDK_ARGS[*]} $*"; ${LIBRELANE} "${PDK_ARGS[@]}" "$@"; }

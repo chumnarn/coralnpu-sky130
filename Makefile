@@ -25,7 +25,11 @@ ifeq ($(filter sky130A sky130B,$(PDK)),)
   override PDK := sky130A
 endif
 override STD_CELL_LIBRARY := sky130_fd_sc_hd
-override PAD_CELL_LIBRARY := sky130_ef_io
+# Never pass a pad library to LibreLane: its CLI forwards it to ciel as a
+# *library to download*, and ciel only knows sky130_fd_io (the sky130 PDK
+# config selects sky130_ef_io by itself).
+undefine PAD_CELL_LIBRARY
+unexport PAD_CELL_LIBRARY
 # sky130 open_pdks build pinned by LibreLane 3.1.0 (librelane/pdk_hashes.yaml)
 SKY130_HASH  ?= 792ef67037d74c8c51811eab3ce23cf793491296
 LIBRELANE    ?= librelane
@@ -53,7 +57,7 @@ GLUE_RTL     := rtl/soc/spi_axi_bridge.v rtl/soc/axi_gpio_slave.v rtl/soc/coraln
                 rtl/sky130/Sram_sky130.v rtl/sky130/ClockGate_sky130.v
 BUILD        := build
 
-export PDK_ROOT PDK STD_CELL_LIBRARY PAD_CELL_LIBRARY LIBRELANE TAG CORALNPU_DIR BAZEL
+export PDK_ROOT PDK STD_CELL_LIBRARY LIBRELANE TAG CORALNPU_DIR BAZEL
 
 .PHONY: help tools pdk fetch check-coralnpu rtl chip-top sw sim sim-sram sim-real lint \
         soc chip report-soc report-chip view-soc view-chip clean distclean
