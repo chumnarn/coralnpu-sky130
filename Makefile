@@ -13,7 +13,19 @@ ROOT         := $(abspath .)
 VARIANT      ?= full
 TAG          ?= main
 PDK_ROOT     ?= $(HOME)/.ciel
-PDK          ?= sky130A
+# This project is sky130-only. An inherited PDK/STD_CELL_LIBRARY from the
+# shell (e.g. PDK=ihp-sg13g2 left over from another lab) is ignored on purpose,
+# because LibreLane and ciel would otherwise silently use it.
+ifneq ($(filter sky130A sky130B,$(PDK)),$(PDK))
+  ifneq ($(origin PDK),command line)
+    $(info NOTE: ignoring PDK=$(PDK) from the environment, using sky130A)
+  endif
+endif
+ifeq ($(filter sky130A sky130B,$(PDK)),)
+  override PDK := sky130A
+endif
+override STD_CELL_LIBRARY := sky130_fd_sc_hd
+override PAD_CELL_LIBRARY := sky130_ef_io
 # sky130 open_pdks build pinned by LibreLane 3.1.0 (librelane/pdk_hashes.yaml)
 SKY130_HASH  ?= 792ef67037d74c8c51811eab3ce23cf793491296
 LIBRELANE    ?= librelane
@@ -35,7 +47,7 @@ GLUE_RTL     := rtl/soc/spi_axi_bridge.v rtl/soc/axi_gpio_slave.v rtl/soc/coraln
                 rtl/sky130/Sram_sky130.v rtl/sky130/ClockGate_sky130.v
 BUILD        := build
 
-export PDK_ROOT PDK LIBRELANE TAG CORALNPU_DIR BAZEL
+export PDK_ROOT PDK STD_CELL_LIBRARY PAD_CELL_LIBRARY LIBRELANE TAG CORALNPU_DIR BAZEL
 
 .PHONY: help tools pdk fetch rtl chip-top sw sim sim-sram sim-real lint \
         soc chip report-soc report-chip view-soc view-chip clean distclean

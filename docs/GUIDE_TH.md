@@ -189,6 +189,7 @@ coralnpu-sky130/
 | smoke test ดาวน์โหลด PDK ไม่ได้ | ตรวจ proxy/firewall ว่าออก `github.com` และ `fossi-foundation.github.io` ได้ |
 | `make pdk` ไม่พบ `sky130_sram_macros` | ลบ `~/.ciel/ciel/sky130/versions/<hash>` แล้วรัน `make pdk` ใหม่ |
 | `make pdk` ขึ้น `MISSING` | รัน `ciel enable --pdk-root ~/.ciel --pdk-family sky130 -l all <hash>` ตามที่สคริปต์แนะนำ |
+| `make pdk` ตรวจที่ `~/.ciel/ihp-sg13g2` (หรือ PDK อื่น) | shell มีตัวแปร `PDK` ค้างจาก lab อื่น ตั้งแต่ zip รุ่นนี้ Makefile และ `run_flow.sh` บังคับใช้ `sky130A` / `sky130_fd_sc_hd` / `sky130_ef_io` ให้เอง แต่ควร `unset PDK STD_CELL_LIBRARY PAD_CELL_LIBRARY` ด้วย เพราะ `librelane` ที่เรียกตรง ๆ จะอ่านตัวแปรพวกนี้ |
 | `make pdk` ขึ้น `libs.ref not found` | ตัวแปร `PDK`/`PDK_ROOT` ใน environment ทับค่าของ Makefile ให้ `unset PDK PDK_ROOT` หรือส่งค่าเอง `make pdk PDK=sky130A PDK_ROOT=~/.ciel` |
 
 ---

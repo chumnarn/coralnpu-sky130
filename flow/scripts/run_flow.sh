@@ -54,7 +54,18 @@ if [[ -n "${LL_MM}" ]] && ! printf '3.1\n%s\n' "${LL_MM}" | sort -V -C; then
   exit 1
 fi
 
-ll() { echo "+ ${LIBRELANE} $*"; ${LIBRELANE} "$@"; }
+# Always pin the PDK/SCL/pad library explicitly: LibreLane otherwise reads
+# PDK / STD_CELL_LIBRARY / PAD_CELL_LIBRARY from the environment.
+PDK="${PDK:-sky130A}"
+case "${PDK}" in sky130A|sky130B) ;; *)
+  echo ">>> NOTE: ignoring PDK=${PDK} from the environment, using sky130A"; PDK=sky130A ;;
+esac
+PDK_ARGS=(--pdk "${PDK}" --scl sky130_fd_sc_hd)
+[[ -n "${PDK_ROOT:-}" ]] && PDK_ARGS+=(--pdk-root "${PDK_ROOT}")
+[[ "${TARGET}" == "chip" ]] && PDK_ARGS+=(--pad sky130_ef_io)
+echo ">>> PDK ${PDK} (${PDK_ROOT:-default ciel root}), SCL sky130_fd_sc_hd"
+
+ll() { echo "+ ${LIBRELANE} ${PDK_ARGS[*]} $*"; ${LIBRELANE} "${PDK_ARGS[@]}" "$@"; }
 
 if [[ -n "${FROM:-}" ]]; then
   ll "${CFG}" --run-tag "${TAG}" -j "${JOBS}" --from "${FROM}"
