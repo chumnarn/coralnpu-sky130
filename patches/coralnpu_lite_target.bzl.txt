@@ -1,0 +1,27 @@
+
+# ---------------------------------------------------------------------------
+# [coralnpu-sky130] "lite" variant for SKY130 tape-out experiments:
+#   RV32IM (no FPU), ITCM 8 KiB, DTCM 8 KiB  ->  8 OpenRAM macros
+# Appended by coralnpu-sky130/scripts/emit_rtl.sh
+# ---------------------------------------------------------------------------
+chisel_cc_library(
+    name = "core_mini_lite_axi_cc_library",
+    chisel_lib = ":coralnpu",
+    emit_class = "coralnpu.EmitCore",
+    extra_outs = [
+        "VCoreMini_ITCM8KB_DTCM8KBAxi_parameters.h",
+        "CoreMini_ITCM8KB_DTCM8KBAxi.zip",
+    ],
+    gen_flags = [
+        "--fetchDataBits=128",
+        "--lsuDataBits=128",
+        "--enableFloat=False",
+        "--moduleName=CoreMini",
+        "--useAxi",
+        "--exposeDebugPorts=True",
+        "--itcmSizeKBytes=8",
+        "--dtcmSizeKBytes=8",
+    ],
+    module_name = "CoreMini_ITCM8KB_DTCM8KBAxi",
+    vopts = CORE_MINI_AXI_VOPTS,
+)

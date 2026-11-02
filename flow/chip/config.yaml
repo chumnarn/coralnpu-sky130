@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: Apache-2.0
+# =============================================================================
+# chip_top  -  FULL CHIP (pad ring + seal ring + fill) with LibreLane "Chip"
+#              flow on sky130A.  Core = coralnpu_soc (flattened) + 20 SRAMs.
+#
+# Variant: FULL  (CoreMiniAxi: RV32IMF, ITCM 8 KiB + DTCM 32 KiB)
+# Run with:  make chip
+# =============================================================================
+meta:
+  version: 2
+  flow: Chip
+
+DESIGN_NAME: chip_top
+
+VERILOG_FILES:
+  - dir::../../rtl/generated/CoralNPUCore.sv
+  - dir::../../rtl/sky130/Sram_sky130.v
+  - dir::../../rtl/sky130/ClockGate_sky130.v
+  - dir::../../rtl/soc/spi_axi_bridge.v
+  - dir::../../rtl/soc/axi_gpio_slave.v
+  - dir::../../rtl/soc/coralnpu_soc.v
+  - dir::../../rtl/chip/chip_top.v
+
+USE_SLANG: true
+RUN_LINTER: false
+
+# ---------------------------------------------------------------- clocking
+CLOCK_PORT: clk_PAD
+CLOCK_NET: core_clk
+CLOCK_PERIOD: 40              # ns -> 25 MHz
+PNR_SDC_FILE: dir::chip_top.sdc
+SIGNOFF_SDC_FILE: dir::chip_top.sdc
+
+# ---------------------------------------------------------------- die / core
+# sky130_ef_io pads are 200 um tall, corners 200 x 204 um.
+FP_SIZING: absolute
+DIE_AREA:  [0, 0, 5000, 5000]
+CORE_AREA: [420, 420, 4580, 4580]
+PL_TARGET_DENSITY_PCT: 45
+FP_MACRO_HORIZONTAL_HALO: 20
+FP_MACRO_VERTICAL_HALO: 20
+RT_MAX_LAYER: met5
+
+MACRO_PLACEMENT_CFG: dir::macro_placement.cfg
+
+# ---------------------------------------------------------------- pad ring
+# The PAD_* lists between the markers are rewritten by scripts/gen_chip_top.py
+PAD_CFG: dir::pad_cfg.tcl
+# >>> PADS (generated)
+PAD_SOUTH:
+  - pad_vssio_0
+  - pad_clk
+  - pad_rst_n
+  - pad_vccd_0
+  - pad_vssd_0
+  - pad_spi_sck
+  - pad_spi_csb
+  - pad_vddio_0
+PAD_EAST:
+  - pad_spi_mosi
+  - pad_spi_miso
+  - pad_irq
+  - pad_gpio_in0
+  - pad_gpio_in1
+  - pad_gpio_in2
+  - pad_gpio_in3
+PAD_NORTH:
+  - pad_vssio_1
+  - pad_gpio_out0
+  - pad_gpio_out1
+  - pad_gpio_out2
+  - pad_gpio_out3
+  - pad_vccd_1
+  - pad_vssd_1
+  - pad_vddio_1
+PAD_WEST:
+  - pad_gpio_out4
+  - pad_gpio_out5
+  - pad_gpio_out6
+  - pad_gpio_out7
+  - pad_halted
+  - pad_fault
+  - pad_wfi
+# <<< PADS
+
+# ---------------------------------------------------------------- power
+VDD_NETS: [VCCD]
+GND_NETS: [VSSD]
+PDN_MACRO_CONNECTIONS:
+  - ".*u_sky130sram.* VCCD VSSD vccd1 vssd1"
+  - "pad_.* VCCD VSSD VCCD VSSD"
+PDN_ENABLE_PINS: false
+PDN_CORE_RING: true
+PDN_CORE_RING_CONNECT_TO_PADS: true
+PDN_CORE_RING_VWIDTH: 20
+PDN_CORE_RING_HWIDTH: 20
+PDN_CORE_RING_VSPACING: 5
+PDN_CORE_RING_HSPACING: 5
+PDN_CORE_RING_VOFFSET: 12
+PDN_CORE_RING_HOFFSET: 12
+PDN_HORIZONTAL_HALO: 15
+PDN_VERTICAL_HALO: 15
+
+# ---------------------------------------------------------------- macros
+MACROS:
+  sky130_sram_2kbyte_1rw1r_32x512_8:
+    gds:
+      - pdk_dir::libs.ref/sky130_sram_macros/gds/sky130_sram_2kbyte_1rw1r_32x512_8.gds
+    lef:
+      - pdk_dir::libs.ref/sky130_sram_macros/lef/sky130_sram_2kbyte_1rw1r_32x512_8.lef
+    vh:
+      - pdk_dir::libs.ref/sky130_sram_macros/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v
+    lib:
+      "*":
+        - pdk_dir::libs.ref/sky130_sram_macros/lib/sky130_sram_2kbyte_1rw1r_32x512_8_TT_1p8V_25C.lib
+    spice:
+      - pdk_dir::libs.ref/sky130_sram_macros/spice/sky130_sram_2kbyte_1rw1r_32x512_8.spice
+    instances: {}
+
+# ---------------------------------------------------------------- routing / misc
+GRT_ALLOW_CONGESTION: true
+RUN_HEURISTIC_DIODE_INSERTION: true
+ERROR_ON_KLAYOUT_DRC: false
+ERROR_ON_KLAYOUT_DENSITY: false

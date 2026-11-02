@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copied to <coralnpu>/examples/sky130/BUILD.bazel by `make sw`.
+load("//rules:coralnpu_v2.bzl", "coralnpu_v2_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+# FULL variant: ITCM 8 KiB / DTCM 32 KiB (default memory map)
+coralnpu_v2_binary(
+    name = "sky130_gpio_demo",
+    srcs = ["gpio_demo.c"],
+    # CoreMiniAxi is scalar-only: never let the compiler emit RVV code
+    copts = ["-fno-tree-vectorize"],
+)
+
+# LITE variant: ITCM 8 KiB / DTCM 8 KiB (highmem map, DTCM @ 0x0010_0000)
+coralnpu_v2_binary(
+    name = "sky130_gpio_demo_lite",
+    srcs = ["gpio_demo.c"],
+    copts = ["-fno-tree-vectorize"],
+    dtcm_size_kbytes = 8,
+    itcm_size_kbytes = 8,
+)

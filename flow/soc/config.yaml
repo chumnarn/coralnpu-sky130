@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# =============================================================================
+# coralnpu_soc  -  block-level hardening (LibreLane Classic flow, sky130A)
+#
+# Variant: FULL  (CoreMiniAxi: RV32IMF, ITCM 8 KiB + DTCM 32 KiB = 20 SRAMs)
+# Run with:  make soc            (see flow/scripts/run_flow.sh)
+# =============================================================================
+meta:
+  version: 2
+  flow: Classic
+
+DESIGN_NAME: coralnpu_soc
+
+VERILOG_FILES:
+  - dir::../../rtl/generated/CoralNPUCore.sv
+  - dir::../../rtl/sky130/Sram_sky130.v
+  - dir::../../rtl/sky130/ClockGate_sky130.v
+  - dir::../../rtl/soc/spi_axi_bridge.v
+  - dir::../../rtl/soc/axi_gpio_slave.v
+  - dir::../../rtl/soc/coralnpu_soc.v
+
+# The Chisel output is SystemVerilog (+ fpnew/common_cells): use yosys-slang
+USE_SLANG: true
+RUN_LINTER: false
+
+# ---------------------------------------------------------------- clocking
+CLOCK_PORT: clk
+CLOCK_PERIOD: 40              # ns -> 25 MHz (OpenRAM macros limit Fmax)
+PNR_SDC_FILE: dir::coralnpu_soc.sdc
+SIGNOFF_SDC_FILE: dir::coralnpu_soc.sdc
+
+# ---------------------------------------------------------------- floorplan
+FP_SIZING: absolute
+DIE_AREA: [0, 0, 4000, 4000]  # um ; adjust after synthesis (see guide Lab 4)
+PL_TARGET_DENSITY_PCT: 45
+FP_MACRO_HORIZONTAL_HALO: 20
+FP_MACRO_VERTICAL_HALO: 20
+RT_MAX_LAYER: met5
+
+# Macro placement file written by flow/scripts/place_srams.py after synthesis
+MACRO_PLACEMENT_CFG: dir::macro_placement.cfg
+
+# ---------------------------------------------------------------- power
+VDD_NETS: [vccd1]
+GND_NETS: [vssd1]
+PDN_MACRO_CONNECTIONS:
+  - ".*u_sky130sram.* vccd1 vssd1 vccd1 vssd1"
+PDN_HORIZONTAL_HALO: 15
+PDN_VERTICAL_HALO: 15
+
+# ---------------------------------------------------------------- macros
+MACROS:
+  sky130_sram_2kbyte_1rw1r_32x512_8:
+    gds:
+      - pdk_dir::libs.ref/sky130_sram_macros/gds/sky130_sram_2kbyte_1rw1r_32x512_8.gds
+    lef:
+      - pdk_dir::libs.ref/sky130_sram_macros/lef/sky130_sram_2kbyte_1rw1r_32x512_8.lef
+    vh:
+      - pdk_dir::libs.ref/sky130_sram_macros/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v
+    lib:
+      "*":
+        - pdk_dir::libs.ref/sky130_sram_macros/lib/sky130_sram_2kbyte_1rw1r_32x512_8_TT_1p8V_25C.lib
+    spice:
+      - pdk_dir::libs.ref/sky130_sram_macros/spice/sky130_sram_2kbyte_1rw1r_32x512_8.spice
+    instances: {}
+
+# ---------------------------------------------------------------- routing / misc
+GRT_ALLOW_CONGESTION: true
+DIODE_ON_PORTS: in
+RUN_HEURISTIC_DIODE_INSERTION: true
+# OpenRAM macros ship without antenna info / with SRAM-specific DRC waivers
+ERROR_ON_KLAYOUT_DRC: false
