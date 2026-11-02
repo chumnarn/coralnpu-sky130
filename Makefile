@@ -31,7 +31,12 @@ override STD_CELL_LIBRARY := sky130_fd_sc_hd
 undefine PAD_CELL_LIBRARY
 unexport PAD_CELL_LIBRARY
 # sky130 open_pdks build pinned by LibreLane 3.1.0 (librelane/pdk_hashes.yaml)
-SKY130_HASH  ?= 792ef67037d74c8c51811eab3ce23cf793491296
+LL_MM        := $(shell $(firstword $(LIBRELANE) librelane) --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+ifeq ($(LL_MM),3.0)
+  SKY130_HASH ?= 8afc8346a57fe1ab7934ba5a6056ea8b43078e71
+else
+  SKY130_HASH ?= 792ef67037d74c8c51811eab3ce23cf793491296
+endif
 LIBRELANE    ?= librelane
 BAZEL        ?= bazel
 CORALNPU_DIR ?= $(ROOT)/third_party/coralnpu
@@ -57,7 +62,8 @@ GLUE_RTL     := rtl/soc/spi_axi_bridge.v rtl/soc/axi_gpio_slave.v rtl/soc/coraln
                 rtl/sky130/Sram_sky130.v rtl/sky130/ClockGate_sky130.v
 BUILD        := build
 
-export PDK_ROOT PDK STD_CELL_LIBRARY LIBRELANE TAG CORALNPU_DIR BAZEL
+CHIP_PDK_HASH ?= 792ef67037d74c8c51811eab3ce23cf793491296
+export PDK_ROOT PDK STD_CELL_LIBRARY CHIP_PDK_HASH LIBRELANE TAG CORALNPU_DIR BAZEL
 
 .PHONY: help tools pdk fetch check-coralnpu rtl chip-top sw sim sim-sram sim-real lint \
         soc chip report-soc report-chip view-soc view-chip clean distclean
@@ -78,9 +84,20 @@ help:
 tools:
 	bash scripts/install_tools.sh
 
+# The pad-ring (LibreLane "Chip") config for sky130_ef_io only exists in newer
+# open_pdks builds. On LibreLane 3.0.x the chip flow therefore uses this build
+# via --manual-pdk (see flow/scripts/run_flow.sh); it is fetched, not enabled.
+
 pdk:
 	ciel enable --pdk-root $(PDK_ROOT) --pdk-family sky130 $(SKY130_HASH)
+ifeq ($(LL_MM),3.0)
+	@bash scripts/check_pdk.sh "$(PDK_ROOT)" "$(PDK)" "$(SKY130_HASH)" nopad
+	@echo ">>> fetching sky130 $(CHIP_PDK_HASH) for the chip (pad ring) flow"
+	ciel fetch --pdk-root $(PDK_ROOT) --pdk-family sky130 $(CHIP_PDK_HASH)
+	@bash scripts/check_pdk.sh "$$(ciel path --pdk-root $(PDK_ROOT) --pdk-family sky130 $(CHIP_PDK_HASH))" "$(PDK)" "$(CHIP_PDK_HASH)"
+else
 	@bash scripts/check_pdk.sh "$(PDK_ROOT)" "$(PDK)" "$(SKY130_HASH)"
+endif
 
 fetch:
 	bash scripts/fetch_coralnpu.sh

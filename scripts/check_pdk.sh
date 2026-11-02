@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # check_pdk.sh <PDK_ROOT> <PDK> <hash> - verify the sky130 files this project needs
-PDK_ROOT="${1:-$HOME/.ciel}"; PDK="${2:-sky130A}"; HASH="${3:-}"
+PDK_ROOT="${1:-$HOME/.ciel}"; PDK="${2:-sky130A}"; HASH="${3:-}"; MODE="${4:-full}"  # MODE=nopad: skip pad-ring files
 P="${PDK_ROOT}/${PDK}"
 echo ">>> checking ${P}"
 if [[ ! -d "${P}/libs.ref" ]]; then
@@ -20,8 +20,9 @@ need=(
   "libs.ref/sky130_sram_macros/lib/sky130_sram_2kbyte_1rw1r_32x512_8_TT_1p8V_25C.lib"
   "libs.ref/sky130_sram_macros/verilog/sky130_sram_2kbyte_1rw1r_32x512_8.v"
   "libs.ref/sky130_sram_macros/spice/sky130_sram_2kbyte_1rw1r_32x512_8.spice"
-  "libs.tech/librelane/sky130_ef_io/config.tcl"
 )
+[[ "${MODE}" != "nopad" ]] && need+=("libs.tech/librelane/sky130_ef_io/config.tcl")
+[[ "${MODE}" == "nopad" ]] && echo "  (pad-ring config not required for this PDK build - 'make chip' uses the newer PDK)"
 for f in "${need[@]}"; do
   if [[ -e "${P}/${f}" ]]; then echo "  ok      ${f}"
   else echo "  MISSING ${f}"; fail=1; fi

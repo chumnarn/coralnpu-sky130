@@ -9,8 +9,8 @@
 | รายการ | เวอร์ชันที่ใช้ในคู่มือ |
 |---|---|
 | CoralNPU (google-coral/coralnpu) | commit `11619e2` (29 ต.ค. 2026) |
-| LibreLane | 3.1.0.dev4 (ต้อง ≥ 3.1 เพราะ Chip flow ใช้ตัวแปรใหม่) |
-| PDK | sky130A ผ่าน ciel (open_pdks `792ef67…` ตามที่ LibreLane 3.1.0 ล็อกไว้) |
+| LibreLane | 3.0.17 (stable, มีใน binary cache) หรือ 3.1.0.dev4 — `run_flow.sh` เลือก config ให้อัตโนมัติ |
+| PDK | sky130A ผ่าน ciel (`8afc834…` สำหรับ 3.0.17 / `792ef67…` สำหรับ 3.1) — `make pdk` เลือก hash ตามเวอร์ชันที่ติดตั้ง |
 | Bazel | 9.1.0 (ผ่าน Bazelisk ตาม `.bazelversion` ของ CoralNPU) |
 
 ---
@@ -38,13 +38,13 @@ CoralNPU เป็น NPU แบบ open source ของ Google Research ที
  │ ┌─▼────▼──────────▼────────────────────▼───────▼────────────┴─────────┐ │
  │ │ coralnpu_soc                                                        │ │
  │ │  ┌──────────────┐ AXI4 128b ┌───────────────────────────────┐       │ │
- │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)    │       │ │
- │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR    │       │ │
- │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB  │       │ │
- │ │                             │  DTCM 32K = 16 x OpenRAM 2KB  │       │ │
+ │ │  │spi_axi_bridge├──────────►│ CoralNPUCore (CoreMiniAxi)     │       │ │
+ │ │  └──────────────┘ (slave)   │  scalar RV32IMF core + CSR     │       │ │
+ │ │                             │  ITCM 8K  = 4  x OpenRAM 2KB   │       │ │
+ │ │                             │  DTCM 32K = 16 x OpenRAM 2KB   │       │ │
  │ │  ┌──────────────┐ AXI4 128b └──────────────┬────────────────┘       │ │
  │ │  │axi_gpio_slave│◄─────────────────────────┘ (master)               │ │
- │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000         │ │
+ │ │  └──────────────┘ GPIO_OUT/GPIO_IN/SCRATCH/ID @ 0x8000_0000          │ │
  │ └─────────────────────────────────────────────────────────────────────┘ │
  └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -152,13 +152,15 @@ coralnpu-sky130/
 
 > ✅ **จุดตรวจสอบ:** `make pdk` ต้องขึ้น `ok` ทุกบรรทัดและจบด้วย `>>> PDK OK` (สคริปต์ `scripts/check_pdk.sh` ตรวจไฟล์ standard cell, pad และ SRAM ที่ flow ต้องใช้ทีละไฟล์)
 
+> 📝 **หมายเหตุ (LibreLane 3.0.x):** PDK ที่ 3.0.17 ล็อกไว้ (`8afc834…`) ยังไม่มี pad-ring config ของ `sky130_ef_io` ดังนั้น `make pdk` จะ enable `8afc834…` สำหรับ `make soc` และ *fetch* PDK รุ่นใหม่ `792ef67…` เพิ่มเพื่อใช้กับ `make chip` (ผ่าน `--manual-pdk`) โดยอัตโนมัติ — จะเห็นการตรวจ 2 รอบและ `>>> PDK OK` 2 ครั้ง
+
 > 📝 **หมายเหตุ:** ทุกคำสั่งตั้งแต่นี้ไปให้รัน **ภายใน nix-shell** ยกเว้นขั้นที่ใช้ Bazel ซึ่งรันได้ทั้งในและนอก nix-shell
 
 > 💡 **เคล็ดลับ (Docker แทน Nix):** `pip3 install git+https://github.com/librelane/librelane@3.1.0.dev4` แล้วใส่ `LIBRELANE="librelane --dockerized"` นำหน้าคำสั่ง make ทุกครั้ง เช่น `LIBRELANE="librelane --dockerized" make soc` โดย `run_flow.sh` จะรันจาก root ของโปรเจกต์ container จึงมองเห็นทั้ง `rtl/` และ `flow/`
 
-### อัปเกรดจาก LibreLane 3.0.x (ถ้าติดตั้งไว้ก่อนแล้ว)
+### (ทางเลือก) อัปเกรดเป็น LibreLane 3.1
 
-1. ออกจาก nix-shell เดิม แล้วสลับ LibreLane ไปเวอร์ชัน 3.1:
+1. (ทางเลือก) ออกจาก nix-shell เดิม แล้วสลับ LibreLane ไปเวอร์ชัน 3.1:
    ```bash
    git -C ~/librelane fetch --tags
    git -C ~/librelane checkout 3.1.0.dev4
@@ -179,7 +181,7 @@ coralnpu-sky130/
 
 > 📝 **หมายเหตุ:** สิ่งที่เปลี่ยนในโปรเจกต์สำหรับ 3.1: config ใช้ `meta.version: 3`, เลิกใช้ `pad_cfg.tcl` ที่ copy มาแก้ (ใช้ `PAD_SPACING_MULTIPLE` และ `PAD_ROTATION_*` ของ PDK แทน), core ring ย้ายไป met2/met3 พร้อม `PDN_CORE_RING_CONNECT_TO_PAD_LAYERS`, และ `chip_top.v` ต่อ rail ของ pad ring ใต้ `USE_POWER_PINS` ตาม reference design `full_chip_sky130` ของ LibreLane
 
-> ⚠️ **คำเตือน:** 3.1.0.dev4 เป็นรุ่น pre-release (ยังไม่มี 3.1.0 บน PyPI ณ วันที่เขียน) เมื่อออก 3.1.0 ตัวจริง ให้ checkout tag นั้นแทนได้เลย โดย `run_flow.sh` รับทุกเวอร์ชันตั้งแต่ 3.1 ขึ้นไป
+> ⚠️ **คำเตือน:** 3.1.0.dev4 เป็นรุ่น pre-release ที่ยังไม่อยู่ใน binary cache ของ FOSSi ทำให้ `nix-shell` ต้อง build Yosys เองและอาจล้มด้วย `hash mismatch in fixed-output derivation ... yosys-v0.69-snapshot.tar.gz` ถ้าเจอให้กลับไปใช้ 3.0.17 (`git -C ~/librelane checkout 3.0.17`) ได้ทันที โปรเจกต์รองรับทั้งสองเวอร์ชัน: บน 3.0.x `run_flow.sh` จะใช้ `flow/chip/config*.v30.yaml` + `pad_cfg_v30.tcl` ให้เอง
 
 ### Troubleshooting
 

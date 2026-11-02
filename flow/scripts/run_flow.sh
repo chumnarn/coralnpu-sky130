@@ -43,16 +43,19 @@ if [[ "${FRESH:-0}" == "1" && -d "${RUNS}/${TAG}" ]]; then
   rm -rf "${RUNS}/${TAG}"
 fi
 
-# The chip configs use LibreLane >= 3.1 features (PAD_SPACING_MULTIPLE,
-# PDN_CORE_RING_CONNECT_TO_PAD_LAYERS, meta.version 3).
+# LibreLane 3.1 is preferred (PAD_SPACING_MULTIPLE, pad rotation, ...).
+# On 3.0.x the chip flow automatically switches to the *.v30.yaml fallback.
 LL_VER="$(${LIBRELANE} --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.]*' | head -1 || true)"
 echo ">>> LibreLane ${LL_VER:-unknown}"
 LL_MM="$(echo "${LL_VER}" | cut -d. -f1-2)"
-if [[ -n "${LL_MM}" ]] && ! printf '3.1\n%s\n' "${LL_MM}" | sort -V -C; then
-  echo "ERROR: LibreLane ${LL_VER} is too old - this project needs >= 3.1.0.dev4"
-  echo "       (git -C ~/librelane checkout 3.1.0.dev4 && nix-shell ~/librelane/shell.nix)"
-  exit 1
+if [[ -n "${LL_MM}" ]] && ! printf '3.0\n%s\n' "${LL_MM}" | sort -V -C; then
+  echo "ERROR: LibreLane ${LL_VER} is too old - this project needs 3.0.17 or >= 3.1"; exit 1
 fi
+if [[ "${LL_MM}" == "3.0" && "${TARGET}" == "chip" && "${CFG}" != *.v30.yaml ]]; then
+  CFG="${CFG%.yaml}.v30.yaml"
+  echo ">>> LibreLane 3.0.x detected: using ${CFG}"
+fi
+[[ -f "${CFG}" ]] || { echo "ERROR: ${CFG} not found"; exit 1; }
 
 # Always pin the PDK/SCL/pad library explicitly: LibreLane otherwise reads
 # PDK / STD_CELL_LIBRARY / PAD_CELL_LIBRARY from the environment.
@@ -61,12 +64,23 @@ case "${PDK}" in sky130A|sky130B) ;; *)
   echo ">>> NOTE: ignoring PDK=${PDK} from the environment, using sky130A"; PDK=sky130A ;;
 esac
 PDK_ARGS=(--pdk "${PDK}" --scl sky130_fd_sc_hd)
-[[ -n "${PDK_ROOT:-}" ]] && PDK_ARGS+=(--pdk-root "${PDK_ROOT}")
+if [[ "${LL_MM}" == "3.0" && "${TARGET}" == "chip" ]]; then
+  # The sky130 build pinned by LibreLane 3.0.x has no sky130_ef_io pad-ring
+  # config, so use the newer build (fetched by 'make pdk') as a manual PDK.
+  CHIP_PDK_HASH="${CHIP_PDK_HASH:-792ef67037d74c8c51811eab3ce23cf793491296}"
+  CHIP_PDK_ROOT="$(ciel path --pdk-root "${PDK_ROOT:-$HOME/.ciel}" --pdk-family sky130 "${CHIP_PDK_HASH}" 2>/dev/null || true)"
+  if [[ -z "${CHIP_PDK_ROOT}" || ! -f "${CHIP_PDK_ROOT}/${PDK}/libs.tech/librelane/sky130_ef_io/config.tcl" ]]; then
+    echo "ERROR: sky130 ${CHIP_PDK_HASH} (pad-ring config) not found - run 'make pdk' first"; exit 1
+  fi
+  PDK_ARGS=(--manual-pdk --pdk-root "${CHIP_PDK_ROOT}" --pdk "${PDK}" --scl sky130_fd_sc_hd)
+elif [[ -n "${PDK_ROOT:-}" ]]; then
+  PDK_ARGS+=(--pdk-root "${PDK_ROOT}")
+fi
 # Do NOT pass --pad / PAD_CELL_LIBRARY: LibreLane hands it to ciel as a library
 # name to download ("Unknown library sky130_ef_io"); the sky130 PDK config
 # already selects sky130_ef_io as the pad library.
 unset PAD_CELL_LIBRARY STD_CELL_LIBRARY
-echo ">>> PDK ${PDK} (${PDK_ROOT:-default ciel root}), SCL sky130_fd_sc_hd"
+echo ">>> PDK args: ${PDK_ARGS[*]}"
 
 ll() { echo "+ ${LIBRELANE} ${PDK_ARGS[*]} $*"; ${LIBRELANE} "${PDK_ARGS[@]}" "$@"; }
 
