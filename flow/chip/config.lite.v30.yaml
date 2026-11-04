@@ -42,7 +42,11 @@ SIGNOFF_SDC_FILE: dir::chip_top.sdc
 FP_SIZING: absolute
 DIE_AREA:  [0, 0, 4000, 4000]
 CORE_AREA: [300, 300, 3700, 3700]
-PL_TARGET_DENSITY_PCT: 45
+# Utilisation is low (~15-20 %): a moderate target density plus non-routability-
+# driven global placement avoids RePlAce divergence (GPL-0305) caused by the
+# huge routability inflation around the SRAM buses.
+PL_TARGET_DENSITY_PCT: 30
+PL_ROUTABILITY_DRIVEN: false
 FP_MACRO_HORIZONTAL_HALO: 20
 FP_MACRO_VERTICAL_HALO: 20
 RT_MAX_LAYER: met5

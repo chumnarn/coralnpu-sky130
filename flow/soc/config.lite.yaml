@@ -32,6 +32,9 @@ SIGNOFF_SDC_FILE: dir::coralnpu_soc.sdc
 # ---------------------------------------------------------------- floorplan
 FP_SIZING: absolute
 DIE_AREA: [0, 0, 3200, 3200]  # um ; adjust after synthesis (see guide Lab 4)
+# Utilisation is low (~15-20 %): a moderate target density plus non-routability-
+# driven global placement avoids RePlAce divergence (GPL-0305) caused by the
+# huge routability inflation around the SRAM buses.
 PL_TARGET_DENSITY_PCT: 30
 PL_ROUTABILITY_DRIVEN: false
 FP_MACRO_HORIZONTAL_HALO: 20

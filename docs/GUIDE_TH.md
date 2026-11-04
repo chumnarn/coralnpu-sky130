@@ -427,6 +427,7 @@ LibreLane 3 ไม่มีขั้นตอนวาง macro อัตโน�
 | Problem | Solution |
 |---|---|
 | `place_srams: core area too small` | ขยาย `DIE_AREA` หรือลด `--hgap/--vgap` ของ `place_srams.py` |
+| `[GPL-0305] RePlAce diverged` และ log มี `routability artificial inflation` สูงมาก (เช่น +176%) | config รุ่นล่าสุดตั้ง `PL_TARGET_DENSITY_PCT: 30` และ `PL_ROUTABILITY_DRIVEN: false` แล้ว ให้แก้ config แล้ว resume ด้วย `FROM=OpenROAD.GlobalPlacement make soc VARIANT=lite` ไม่ต้อง synthesis ใหม่ |
 | GPL/DPL ล้มเหลว utilization สูง | ลด `PL_TARGET_DENSITY_PCT` (เช่น 40) หรือขยาย die |
 | พื้นที่ cell หลัง synthesis ใหญ่กว่าที่คาด | LibreLane 3.1 เปลี่ยนค่าเริ่มต้น `SYNTH_STRATEGY` เป็น `DELAY 4` ถ้า die ไม่พอให้ลองใส่ `SYNTH_STRATEGY: AREA 1` ใน config (ที่ 25 MHz ไม่จำเป็นต้องเน้น delay) |
 | Setup violation | เพิ่ม `CLOCK_PERIOD` (เช่น 50 ns) เพราะ OpenRAM macro มี clock-to-q ช้า หรือดู critical path ใน `*-openroad-stapostpnr/` |
